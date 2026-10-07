@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@font-face { font-family: "Arita Buri"; src: url("/fonts/AritaBuri-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Arita Buri"; src: url("/fonts/AritaBuri-Semibold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Arita Buri"; src: url("/fonts/AritaBuri-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  --paper: #faf9f5;
+  --paper-deep: #f3eee9;
+  --ink: #1f1e1c;
+  --muted: #6f6a64;
+  --line: #e8e6e3;
+  --navy: #111f48;
+  --teal: #2a9d99;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Arita Buri", Georgia, serif; }
+.font-sans { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+::selection { background: #dce5fb; color: var(--navy); }
+a, button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+.prose-book p { margin-top: 1rem; line-height: 1.9; color: #45423e; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

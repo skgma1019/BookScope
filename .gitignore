@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
+credentials*.json
+service-account*.json
+*.log
+*.tsbuildinfo
+.DS_Store

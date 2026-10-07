@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <main className="grid min-h-[60vh] place-items-center px-5 text-center"><div><p className="font-sans text-sm font-bold uppercase tracking-[.15em] text-[var(--teal)]">404</p><h1 className="mt-4 text-4xl font-semibold text-[var(--navy)]">페이지를 찾을 수 없습니다</h1><p className="mt-3 text-[var(--muted)]">주소를 확인하거나 검색을 다시 시작해주세요.</p><Link href="/" className="mt-7 inline-block rounded-full bg-[var(--navy)] px-6 py-3 font-sans text-sm font-bold text-white">홈으로 돌아가기</Link></div></main>; }
