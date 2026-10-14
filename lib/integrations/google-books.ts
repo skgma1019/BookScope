@@ -49,13 +49,36 @@ function apiUrl(params: Record<string, string>) {
   return url;
 }
 
+async function requestBooks(query: string, startIndex: number, maxResults: number) {
+  const url = apiUrl({ q: query, startIndex: String(startIndex), maxResults: String(maxResults), country: "KR" });
+  let lastResponse: Response | null = null;
+  let lastData: { totalItems?: number; items?: GoogleVolume[]; error?: { message?: string } } = {};
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+    const data = (await response.json().catch(() => ({}))) as typeof lastData;
+    lastResponse = response;
+    lastData = data;
+    if (response.ok || (response.status !== 429 && response.status < 500)) return { response, data };
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+  }
+
+  return { response: lastResponse!, data: lastData };
+}
+
 export async function searchBooks(query: string, startIndex = 0): Promise<BookSearchResult> {
   const maxResults = 20;
-  const response = await fetch(apiUrl({ q: query, startIndex: String(startIndex), maxResults: String(maxResults), country: "KR" }), {
-    signal: AbortSignal.timeout(8000), cache: "no-store",
-  });
-  if (!response.ok) throw new Error("GOOGLE_BOOKS_SEARCH_FAILED");
-  const data = (await response.json()) as { totalItems?: number; items?: GoogleVolume[] };
+  let { response, data } = await requestBooks(query, startIndex, maxResults);
+
+  // Google Books occasionally returns 503 for long Korean free-text queries,
+  // while its title index returns the intended volumes. Keep general search as
+  // the primary path so author and ISBN queries retain their normal behavior.
+  const isIsbn = /^\d[\d-]{8,16}[\dXx]$/.test(query.replace(/\s/g, ""));
+  if ((!response.ok || !data.items?.length) && !isIsbn && !query.startsWith("intitle:")) {
+    ({ response, data } = await requestBooks(`intitle:${query}`, startIndex, maxResults));
+  }
+
+  if (!response.ok) throw new Error(`GOOGLE_BOOKS_SEARCH_FAILED_${response.status}`);
   const totalItems = data.totalItems ?? 0;
   const next = startIndex + maxResults;
   return { items: (data.items ?? []).map(normalize), totalItems, nextStartIndex: next < totalItems ? next : null };

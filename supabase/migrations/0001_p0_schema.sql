@@ -94,6 +94,21 @@ $$;
 
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 
+-- OAuth may have been configured before this migration was applied. Ensure
+-- those existing Auth users also receive the profile required by P0 FKs.
+insert into public.profiles (id, email, display_name, avatar_url)
+select
+  user_record.id,
+  coalesce(user_record.email, ''),
+  coalesce(
+    nullif(user_record.raw_user_meta_data ->> 'full_name', ''),
+    nullif(split_part(coalesce(user_record.email, ''), '@', 1), ''),
+    'BookScope 사용자'
+  ),
+  user_record.raw_user_meta_data ->> 'avatar_url'
+from auth.users as user_record
+on conflict (id) do nothing;
+
 alter table public.profiles enable row level security;
 alter table public.books enable row level security;
 alter table public.user_library enable row level security;

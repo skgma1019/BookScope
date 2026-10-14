@@ -8,6 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ko"><body><SiteHeader />{children}<footer className="mt-20 border-t border-[var(--line)] py-10"><div className="mx-auto max-w-6xl px-5 text-sm text-[var(--muted)] sm:px-8">© BookScope · 책을 여러 관점에서 바라봅니다.</div></footer></body></html>;
+  return <html lang="ko" data-scroll-behavior="smooth"><body><SiteHeader />{children}<footer className="mt-20 border-t border-[var(--line)] py-10"><div className="mx-auto max-w-6xl px-5 text-sm text-[var(--muted)] sm:px-8">© BookScope · 책을 여러 관점에서 바라봅니다.</div></footer></body></html>;
 }
-

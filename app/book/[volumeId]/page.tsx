@@ -6,7 +6,9 @@ import { BookCover } from "@/components/book-cover";
 import { Card } from "@/components/ui/card";
 import { LibraryControls } from "@/components/library-controls";
 import { ReviewForm } from "@/components/review-form";
+import { AiAnalysis } from "@/components/ai-analysis";
 import { getBook } from "@/lib/integrations/google-books";
+import { hasReviewSearchProvider } from "@/lib/integrations/search";
 import { getCurrentUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatWon } from "@/lib/utils";
 
@@ -15,6 +17,28 @@ export async function generateMetadata({ params }: { params: Promise<{ volumeId:
   try { const book = await getBook(volumeId); return { title: book?.title ?? "도서 상세" }; } catch { return { title: "도서 상세" }; }
 }
 
+type AnalysisRow = {
+  id: string;
+  summary: string | null;
+  strengths: string[] | null;
+  criticisms: string[] | null;
+  mixed_opinions: string[] | null;
+  themes: string[] | null;
+  style: string | null;
+  target_readers: string[] | null;
+  evidence_notes: string | null;
+  source_count: number;
+  updated_at: string;
+};
+
+type SourceRow = {
+  url: string | null;
+  title: string | null;
+  publisher: string | null;
+  source_type: string;
+  snippet: string;
+};
+
 export default async function BookDetailPage({ params }: { params: Promise<{ volumeId: string }> }) {
   const { volumeId } = await params;
   const book = await getBook(volumeId);
@@ -22,19 +46,38 @@ export default async function BookDetailPage({ params }: { params: Promise<{ vol
   const user = await getCurrentUser();
   let library: { status: string } | null = null;
   let review: { id: string; rating: number | null; review_text: string | null } | null = null;
+  let analysis: AnalysisRow | null = null;
+  let analysisSources: SourceRow[] = [];
+
   if (user) {
     const supabase = await createSupabaseServerClient();
     if (supabase) {
       const { data: stored } = await supabase.from("books").select("id").eq("google_volume_id", volumeId).maybeSingle();
       if (stored) {
-        const [{ data: libraryData }, { data: reviewData }] = await Promise.all([
+        const [{ data: libraryData }, { data: reviewData }, { data: analysisData }] = await Promise.all([
           supabase.from("user_library").select("status").eq("book_id", stored.id).maybeSingle(),
           supabase.from("user_reviews").select("id,rating,review_text").eq("book_id", stored.id).maybeSingle(),
+          supabase.from("ai_analyses").select("id,summary,strengths,criticisms,mixed_opinions,themes,style,target_readers,evidence_notes,source_count,updated_at").eq("book_id", stored.id).maybeSingle(),
         ]);
-        library = libraryData; review = reviewData;
+        library = libraryData;
+        review = reviewData;
+        if (analysisData) {
+          analysis = analysisData as AnalysisRow;
+          const { data: sourcesData } = await supabase
+            .from("analysis_sources")
+            .select("review_sources(url,title,publisher,source_type,snippet)")
+            .eq("analysis_id", analysisData.id);
+          analysisSources = ((sourcesData ?? []) as unknown as { review_sources: SourceRow | SourceRow[] | null }[])
+            .map((row) => (Array.isArray(row.review_sources) ? row.review_sources[0] : row.review_sources))
+            .filter((s): s is SourceRow => s != null);
+        }
       }
     }
   }
+
+  const hasSearchProvider = hasReviewSearchProvider();
+  const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+
   const price = formatWon(book.saleInfo?.retailPrice?.amount, book.saleInfo?.retailPrice?.currencyCode);
   return <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
     <Link href="/search" className="font-sans text-sm font-semibold text-[var(--muted)] hover:text-[var(--navy)]">← 검색 결과로</Link>
@@ -54,6 +97,15 @@ export default async function BookDetailPage({ params }: { params: Promise<{ vol
     <div className="mt-14 grid gap-6 lg:grid-cols-[1fr_340px]">
       <div className="space-y-6">
         <Card className="p-6 sm:p-8"><SectionTitle>작품 소개</SectionTitle><div className="prose-book">{book.description ? <p>{book.description.replace(/<[^>]*>/g, "")}</p> : <p>제공된 작품 설명이 없습니다.</p>}</div></Card>
+        {user && (
+          <AiAnalysis
+            volumeId={volumeId}
+            analysis={analysis}
+            sources={analysisSources}
+            hasSearchProvider={hasSearchProvider}
+            hasGeminiKey={hasGeminiKey}
+          />
+        )}
         <Card className="p-6 sm:p-8"><SectionTitle>내 평가</SectionTitle>{user ? <ReviewForm volumeId={volumeId} review={review} /> : <div className="rounded-2xl bg-[var(--paper)] p-6 text-center"><p className="text-[var(--muted)]">별점과 리뷰를 남기려면 로그인이 필요합니다.</p><Link className="mt-4 inline-block font-sans text-sm font-bold text-[var(--navy)]" href={`/login?next=/book/${encodeURIComponent(volumeId)}`}>로그인하기 →</Link></div>}</Card>
       </div>
       <aside className="space-y-6">
