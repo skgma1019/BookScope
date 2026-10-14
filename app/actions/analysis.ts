@@ -71,12 +71,13 @@ export async function requestAnalysis(formData: FormData): Promise<AnalysisActio
     }
   }
 
-  // 3. Check search provider
+  // 3. Gemini backs both the review search and the analysis, so a missing key
+  // is reported as such rather than as a generic missing-provider error.
+  if (!process.env.GEMINI_API_KEY) return { status: "no_gemini_key" };
+
+  // 4. Check search provider
   const searchAdapter = createReviewSearchAdapter();
   if (!searchAdapter) return { status: "no_search_provider" };
-
-  // 4. Check Gemini key
-  if (!process.env.GEMINI_API_KEY) return { status: "no_gemini_key" };
 
   // 5. Create analysis job
   const { data: job, error: jobError } = await supabase
